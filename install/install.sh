@@ -99,4 +99,13 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
+# добавим namespace test и запустим тестовый под из файла install/pod.yml
 kubectl create namespace test
+kubectl apply -f install/pod.yml
+# проверить что под запустился
+kubectl run test-curl -n test --image=curlimages/curl --rm -it -- curl http://test-web:8000/
+kubectl detail pod test-web
+# проверить что под запустился 
+kubectl get pods -n test
+# проверить что под запустился и получить логи
+kubectl logs -n test test-web
