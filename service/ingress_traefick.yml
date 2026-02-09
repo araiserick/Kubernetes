@@ -1,0 +1,56 @@
+# Устанавливаем Ingress для Traefik, который будет маршрутизировать трафик на сервис my-service.
+# Устанавливаем ingress-controller для Traefik, который будет обрабатывать входящий трафик и направлять его на соответствующие сервисы командой:
+
+---
+# Ingress для маршрутизации через Traefik (стандартный Kubernetes Ingress)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  namespace: default
+  labels:
+    app: my-app
+  annotations:
+    # Traefik-specific annotations
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd  # опционально: редирект на HTTPS
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    # Rate limiting (опционально)
+    # traefik.ingress.kubernetes.io/router.middlewares: default-ratelimit@kubernetescrd
+spec:
+  ingressClassName: traefik  # важно для Traefik v2+
+  rules:
+  - host: my-app.example.com  # замените на ваш домен
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+  tls:  # опционально: для HTTPS
+  - hosts:
+    - my-app.example.com
+    secretName: my-app-tls-secret  # должен существовать заранее (например, через cert-manager)
+
+---
+# Альтернатива: IngressRoute (Traefik CRD) — более гибкий вариант
+# Раскомментируйте, если используете продвинутые возможности Traefik
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: my-ingressroute
+  namespace: default
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: Host(`my-app.example.com`) && PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: my-service
+      port: 80
+  # tls:
+  #   secretName: my-app-tls-secret

@@ -1,0 +1,68 @@
+---
+# Deployment приложения
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  namespace: default
+  labels:
+    app: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      nodeSelector:
+        node-type: worker
+      containers:
+      - name: my-container
+        image: nginx:stable-alpine3.23
+        ports:
+        - containerPort: 80
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 20
+      terminationGracePeriodSeconds: 30
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  minReadySeconds: 10
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 600
+
+---
+# Service для доступа к подам
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: default
+  labels:
+    app: my-app
+spec:
+  selector:
+    app: my-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    name: http
+  type: ClusterIP
+
