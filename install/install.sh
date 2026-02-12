@@ -111,3 +111,27 @@ kubectl detail pod test-web
 kubectl get pods -n test
 # проверить что под запустился и получить логи
 kubectl logs -n test test-web
+
+# Если надо перегенерировать токен для подключения по external ip
+# Создайте резервную копию текущих сертификатов
+sudo cp -r /etc/kubernetes/pki /etc/kubernetes/pki-backup-$(date +%F)
+# Удалите текущие сертификаты API-сервера
+sudo rm /etc/kubernetes/pki/apiserver.crt /etc/kubernetes/pki/apiserver.key
+# Перегенерируйте сертификат API-сервера с публичным IP
+sudo kubeadm init phase certs apiserver \
+  --apiserver-cert-extra-sans=$PUBLIC_IP,$INTERNAL_IP,$HOSTNAME,127.0.0.1
+# Перезапустите компоненты управления Kubernetes, чтобы они использовали новый сертификат
+sudo systemctl restart kubelet
+# Создайте новый токен для подключения узлов-воркеров
+kubeadm token create --print-join-command --ttl=0
+
+# На master1: обновите конфиг для удалённого доступа
+kubectl config set-cluster kubernetes \
+  --server=https://<externel_ip>:6443 \
+  --kubeconfig=/etc/kubernetes/admin.conf
+
+# Скопируйте конфиг на локальную машину
+scp erick@<externel_ip>:/etc/kubernetes/admin.conf ~/.kube/config-remote
+
+# На локальной машине отредактируйте ~/.kube/config-remote:
+#   server: https://<externel_ip>:6443
